@@ -276,20 +276,60 @@ sdd-codex-review-plugin/
 ├── README.md
 ├── LICENSE
 ├── skill/
-│   ├── SKILL.md                  # メインスキル定義
-│   ├── prompts/
+│   ├── SKILL.md                  # メインスキル定義（~200行）
+│   ├── prompts/                  # Codexレビュープロンプト
 │   │   ├── requirements-review.md
 │   │   ├── design-review.md
 │   │   ├── tasks-review.md
-│   │   └── impl-review.md
+│   │   ├── impl-review.md
+│   │   ├── arch-review.md
+│   │   └── cross-check-review.md
+│   ├── workflows/                # 詳細ワークフロー
+│   │   ├── phase-workflows.md
+│   │   ├── scale-strategies.md
+│   │   └── context-saving.md
+│   ├── reference/                # 参照ドキュメント
+│   │   └── spec-json-format.md
+│   ├── evaluations/              # 評価シナリオ
+│   │   ├── requirements-review-eval.json
+│   │   ├── design-review-eval.json
+│   │   └── impl-review-eval.json
 │   └── templates/
 │       └── review-report.md
 ├── integration/
-│   ├── claude-md-snippet.md      # CLAUDE.md用スニペット
-│   └── kiro-command-snippet.md   # Kiroコマンド連携用
+│   ├── claude-md-snippet.md
+│   └── kiro-command-snippet.md
 └── examples/
-    └── spec-json-example.json    # spec.jsonサンプル
+    └── spec-json-example.json
 ```
+
+---
+
+## Best Practices Compliance
+
+This skill follows [Claude Agent Skills Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).
+
+### Compliance Status
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| **Naming Convention** | ✅ | `sdd-codex-review` - lowercase with hyphens |
+| **Description** | ✅ | Third-person, English + Japanese, includes triggers |
+| **File Size** | ✅ | SKILL.md ~200 lines (< 500 limit) |
+| **Progressive Disclosure** | ✅ | Details in workflows/, reference/, prompts/ |
+| **One-Level References** | ✅ | All refs directly from SKILL.md |
+| **Feedback Loops** | ✅ | Auto-fix → test → re-review loop |
+| **Workflows** | ✅ | Step-by-step with clear stop conditions |
+| **Error Handling** | ✅ | Retry, timeout, fallback strategies |
+| **Evaluations** | ✅ | 3 evaluation scenarios in evaluations/ |
+| **Consistent Terminology** | ✅ | Unified terms: blocking/advisory, verdict, phase |
+
+### Key Design Decisions
+
+1. **Conciseness**: Main SKILL.md contains only essentials; details are in separate files
+2. **Bilingual**: Description in English for discoverability, body in Japanese for local team
+3. **No Simulation**: Explicit prohibition with Session ID verification
+4. **Degrees of Freedom**: Low (specific codex commands) for reliability
 
 ## ライセンス
 
