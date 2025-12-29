@@ -419,3 +419,199 @@ codex exec --full-auto resume [SESSION_ID] "[修正内容と再レビュー依�
 3. **差分適用**: suggestionは可能な限り自動適用、複雑な場合はユーザー確認
 4. **履歴保持**: 各レビュー結果をspec.jsonのcodex_reviewsに記録
 5. **並列処理禁止**: 1フェーズずつ順次処理（依存関係のため）
+
+---
+
+## コンテキスト節約モード（Context-Saving Mode）
+
+Codexレビュー実行中にClaude Codeのコンテキストを解放し、メモリ効率を最大化するモードです。
+
+### 背景
+
+長時間のセッションでは、コンテキストが肥大化し応答速度が低下します。
+Codexレビューは外部プロセスで実行されるため、この待機時間を利用してコンテキストを整理できます。
+
+### 使用方法
+
+```bash
+# コンテキスト節約モードでレビュー実行
+/sdd-codex-review [phase] [feature] --context-saving
+```
+
+### ワークフロー
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. 状態保存                                                      │
+│    .context/sdd-review-state.json に必要情報を保存              │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. バックグラウンド実行                                          │
+│    codex exec --full-auto を run_in_background で実行           │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. コンテキスト解放の案内                                        │
+│    「レビュー実行中。別作業またはcompactが可能です」             │
+│    「結果確認: /sdd-codex-review resume [task-id]」             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. ユーザーの選択                                                │
+│    A) 別の作業を続ける                                          │
+│    B) コンテキストを圧縮（要約生成）                            │
+│    C) 結果を待つ                                                │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. 結果取得と復元                                                │
+│    TaskOutput で結果取得 → 状態ファイルから復元 → 続行          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 状態保存フォーマット
+
+`.context/sdd-review-state.json`:
+
+```json
+{
+  "mode": "context-saving",
+  "feature_name": "example-feature",
+  "phase": "requirements",
+  "spec_path": ".kiro/specs/example-feature/",
+  "review_target": "requirements.md",
+  "task_id": "codex-task-abc123",
+  "session_context": {
+    "current_step": "codex-review",
+    "retry_count": 0,
+    "started_at": "2025-12-29T12:00:00.000Z"
+  },
+  "restore_hints": {
+    "spec_json_path": ".kiro/specs/example-feature/spec.json",
+    "steering_paths": [
+      ".kiro/steering/product.md",
+      ".kiro/steering/tech.md",
+      ".kiro/steering/structure.md"
+    ]
+  }
+}
+```
+
+### コンテキスト解放時の案内メッセージ
+
+```markdown
+## Codexレビュー実行中
+
+| 項目 | 値 |
+|------|-----|
+| フェーズ | [PHASE] |
+| フィーチャー | [FEATURE] |
+| タスクID | [TASK_ID] |
+| 開始時刻 | [TIMESTAMP] |
+
+### この間にできること
+
+1. **別の作業を続ける**
+   - 他のファイルの編集
+   - 別フィーチャーの調査
+
+2. **コンテキストを圧縮**
+   - 現在のセッションを要約
+   - 不要な履歴を削除
+
+3. **結果を待つ**
+   - そのまま待機
+
+### 結果の確認方法
+
+```bash
+# 結果を確認して続行
+/sdd-codex-review resume [TASK_ID]
+```
+
+### 状態ファイル
+
+復元用データは `.context/sdd-review-state.json` に保存されています。
+```
+
+### 復元処理
+
+`/sdd-codex-review resume [task-id]` 実行時:
+
+1. **状態ファイル読み込み**
+   ```bash
+   cat .context/sdd-review-state.json
+   ```
+
+2. **Codex結果取得**
+   ```
+   TaskOutput tool で task_id の結果を取得
+   ```
+
+3. **最小限のコンテキスト復元**
+   - spec.json を読み込み
+   - steering/ ドキュメントを読み込み（必要に応じて）
+   - 対象フェーズのファイルを読み込み
+
+4. **通常のレビュー後処理**
+   - JSON解析
+   - verdict判定
+   - 自動修正（必要に応じて）
+   - spec.json更新
+
+### 実装ノート
+
+#### バックグラウンド実行
+
+```python
+# Bash tool with run_in_background=true
+Bash(
+    command='codex exec --full-auto "[prompt]"',
+    run_in_background=True
+)
+# → task_id が返される
+```
+
+#### 結果取得
+
+```python
+# TaskOutput tool でブロッキング取得
+TaskOutput(
+    task_id="[task_id]",
+    block=True,
+    timeout=300000  # 5分タイムアウト
+)
+```
+
+### 制限事項
+
+1. **状態ファイルの手動管理**
+   - `.context/sdd-review-state.json` は自動削除されない
+   - 正常完了後に手動で削除を推奨
+
+2. **セッション断絶リスク**
+   - Claude Codeセッションが終了すると、task_idが無効になる可能性
+   - その場合は状態ファイルから手動復元
+
+3. **並列レビューの禁止**
+   - 同時に複数の `--context-saving` レビューは非推奨
+   - 状態ファイルが上書きされる
+
+### ベストプラクティス
+
+1. **長時間セッション時に使用**
+   - 1時間以上のセッションで効果的
+   - 短いセッションでは通常モード推奨
+
+2. **impl フェーズで特に有効**
+   - 実装レビューは時間がかかる
+   - コード差分が大きい場合に効果的
+
+3. **復元後は steering/ を参照**
+   - コンテキスト圧縮後は知識が失われている
+   - `.kiro/steering/` を再読み込みして補完

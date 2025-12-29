@@ -300,3 +300,40 @@ MIT License
 - [OpenAI Codex CLI](https://github.com/openai/codex)
 - [Claude Code](https://claude.ai/code)
 - [Kiro](https://kiro.dev/) (Spec-Driven Development)
+
+## コンテキスト節約モード
+
+長時間セッションでのメモリ効率を最大化するモードです。
+
+### 使い方
+
+```bash
+# コンテキスト節約モードでレビュー
+/sdd-codex-review [phase] [feature] --context-saving
+```
+
+### 仕組み
+
+1. **状態保存**: 必要情報を `.context/sdd-review-state.json` に保存
+2. **バックグラウンド実行**: Codexをバックグラウンドで実行
+3. **コンテキスト解放**: レビュー中に別作業やコンテキスト圧縮が可能
+4. **結果取得**: `resume` コマンドで結果を取得し続行
+
+```bash
+# 結果を確認して続行
+/sdd-codex-review resume [task-id]
+```
+
+### メリット
+
+- Codexレビュー待機中にコンテキストを整理可能
+- 長時間セッションでの応答速度低下を防止
+- 別作業との並行が可能
+
+### 推奨シーン
+
+- 1時間以上の長時間セッション
+- 大規模なコード差分のimplレビュー
+- 複数フィーチャーを同時進行する場合
+
+詳細は `skill/SKILL.md` の「コンテキスト節約モード」セクションを参照。
