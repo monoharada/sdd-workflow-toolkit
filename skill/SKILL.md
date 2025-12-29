@@ -26,7 +26,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
 - ❌ Codex session IDなしでAPPROVEDを報告すること
 
 ### 必須事項
-- ✅ 必ず`codex exec --full-auto "[prompt]"`を実行すること
+- ✅ 必ず`codex exec --sandbox read-only "[prompt]"`を実行すること
 - ✅ Codex出力の`session id:`をユーザー報告に含めること
 - ✅ 外部LLM（Codex/GPT）による独立レビューの価値を尊重すること
 
@@ -95,7 +95,7 @@ OKが出るまでフィードバックループを繰り返すスキルです。
 
 2. **Codexレビュー実行**
    ```bash
-   codex exec --full-auto "
+   codex exec --sandbox read-only "
    あなたはcc-sdd要件レビュアーです。以下の要件定義をレビューしてください。
 
    ## レビュー基準
@@ -237,7 +237,7 @@ spec.phase = "ready-for-implementation";
 段階的リファクタリングなど、タスクが分割されている場合、Codexが全体設計を理解せずに指摘することがある。この場合、以下の情報を補足して`resume`で再レビューを依頼する：
 
 ```bash
-codex exec --full-auto resume [SESSION_ID] "
+codex exec --sandbox read-only resume [SESSION_ID] "
 ## 設計コンテキストの補足
 
 ### タスク分割の設計意図
@@ -261,16 +261,160 @@ codex exec --full-auto resume [SESSION_ID] "
 ### 実装レビュー専用コマンド（オプション）
 ```bash
 # mainブランチとの差分をベースにレビュー
-codex exec --full-auto review --base main "
+codex exec --sandbox read-only review --base main "
 [追加のレビュー指示（要件ID、テスト基準など）]
 "
 
 # 未コミットの変更をレビュー
-codex exec --full-auto review --uncommitted "
+codex exec --sandbox read-only review --uncommitted "
 [追加のレビュー指示]
 "
 ```
 **メリット**: コード差分が自動抽出されるため、ファイル内容を手動で渡す必要がない
+
+---
+
+## 規模判定（implフェーズ専用）
+
+implフェーズでは、変更規模に応じてレビュー戦略を自動選択します。
+
+### 規模判定コマンド
+
+```bash
+git diff HEAD --stat
+git diff HEAD --name-status --find-renames
+```
+
+### 規模基準と戦略
+
+| 規模 | ファイル数 | 変更行数 | 戦略 |
+|------|-----------|---------|------|
+| small | ≤3 | ≤100 | diff のみ |
+| medium | 4-10 | 100-500 | arch → diff |
+| large | >10 | >500 | arch → diff並列 → cross-check |
+
+### 戦略詳細
+
+#### small（≤3ファイル、≤100行）
+- 単純なdiffレビュー
+- 通常のimplレビューフローを実行
+
+#### medium（4-10ファイル、100-500行）
+1. **archフェーズ**: アーキテクチャ整合性確認
+   - 依存関係、責務分割、破壊的変更、セキュリティ設計
+2. **diffフェーズ**: 詳細コードレビュー
+
+#### large（>10ファイル、>500行）
+1. **archフェーズ**: アーキテクチャ整合性確認
+2. **diffフェーズ**: 並列実行
+   - 3-5サブエージェント
+   - 1呼び出しあたり最大5ファイル/300行
+   - ディレクトリ単位で分割
+3. **cross-checkフェーズ**: 横断的整合性確認
+
+### archプロンプト
+
+```
+以下の変更のアーキテクチャ整合性をレビューせよ。出力はJSON1つのみ。
+
+これはレビューゲートとして実行されている。blockingが1件でもあればok: falseとし、
+修正→再レビューで収束させる前提で指摘せよ。
+
+diff_range: HEAD
+観点: 依存関係、責務分割、破壊的変更、セキュリティ設計
+前回メモ: {{NOTES_FOR_NEXT_REVIEW}}
+```
+
+### cross-checkプロンプト
+
+```
+並列レビュー結果を統合し横断レビューせよ。出力はJSON1つのみ。
+
+これはレビューゲートとして実行されている。横断的なblocking
+（例: interface不整合、認可漏れ、API互換破壊）があればok: falseとせよ。
+
+全体stat: {{STAT_OUTPUT}}
+各グループ結果: {{GROUP_JSONS}}
+観点: interface整合、error handling一貫性、認可、API互換、テスト網羅
+```
+
+---
+
+## 並列レビュー（large規模時）
+
+large規模（>10ファイル、>500行）の場合、タイムアウトを回避し効率化するために並列レビューを実行します。
+
+### 並列レビューフロー
+
+```
+[large規模判定]
+    │
+    ▼
+[archフェーズ] ─── 単一Codex実行（アーキテクチャ全体確認）
+    │
+    ▼ ok: true
+[ファイル分割] ─── ディレクトリ単位で3-5グループに分割
+    │
+    ├─ Group 1: src/components/ (5ファイル)
+    ├─ Group 2: src/services/  (4ファイル)
+    ├─ Group 3: src/utils/     (3ファイル)
+    └─ Group 4: tests/         (2ファイル)
+    │
+    ▼
+[並列diffレビュー] ─── 各グループを並列でCodex実行
+    │
+    ├─ サブエージェント1 → Group 1 結果
+    ├─ サブエージェント2 → Group 2 結果
+    ├─ サブエージェント3 → Group 3 結果
+    └─ サブエージェント4 → Group 4 結果
+    │
+    ▼
+[結果統合] ─── Claude Codeが全結果をマージ
+    │
+    ▼
+[cross-checkフェーズ] ─── 横断的整合性確認（単一Codex実行）
+    │
+    ▼
+ok: true → 次へ / ok: false → 修正ループ
+```
+
+### 分割ルール
+
+| パラメータ | 値 | 説明 |
+|-----------|-----|------|
+| parallelism | 3-5 | 同時実行サブエージェント数 |
+| max_files_per_group | 5 | 1グループあたり最大ファイル数 |
+| max_lines_per_group | 300 | 1グループあたり最大行数 |
+| split_by | directory | 分割単位（ディレクトリ優先） |
+
+### 分割アルゴリズム
+
+1. ディレクトリ単位でファイルをグループ化
+2. 各グループが `max_files_per_group` と `max_lines_per_group` を超えないよう調整
+3. 小さすぎるグループは隣接グループとマージ
+4. cross-cutting concerns（複数ディレクトリに跨る変更）は cross-check で検出
+
+### 並列diffプロンプト
+
+```
+以下の変更をレビューせよ。出力はJSON1つのみ。
+
+これはレビューゲートとして実行されている。blockingが1件でもあればok: falseとし、
+修正→再レビューで収束させる前提で指摘せよ。
+
+diff_range: HEAD
+対象: {{TARGET_FILES}}
+観点: {{REVIEW_FOCUS}}
+前回メモ: {{NOTES_FOR_NEXT_REVIEW}}
+```
+
+### 結果統合時の処理
+
+1. 全グループの `issues` を集約
+2. 重複する指摘をマージ
+3. `blocking` 件数を合計
+4. 1件でも `blocking` があれば全体として `ok: false`
+5. 統合結果を cross-check に渡す
 
 ---
 
@@ -298,24 +442,158 @@ initialized → requirements → design → tasks → impl → completed
 
 | 判定 | 条件 |
 |------|------|
-| OK/GO/APPROVED | critical = 0件 かつ medium ≦ 2件 |
-| NEEDS_REVISION/NO_GO | critical ≧ 1件 または medium ≧ 3件 |
+| ok: true (OK/GO/APPROVED) | blocking = 0件 |
+| ok: false (NEEDS_REVISION/NO_GO) | blocking ≧ 1件 |
+
+### severity定義
+
+| severity | 意味 | 影響 |
+|----------|------|------|
+| blocking | 修正必須 | 1件でも`ok: false` |
+| advisory | 推奨・警告 | `ok: true`でも出力可、レポートに記載のみ |
+
+### category定義
+
+- **correctness**: 正確性、要件/設計準拠
+- **security**: セキュリティ（自動的にblocking）
+- **perf**: パフォーマンス
+- **maintainability**: 保守性
+- **testing**: テストカバレッジ
+- **style**: スタイル、形式
+
+---
+
+## 修正ループとテスト/リンタ統合
+
+### 修正ループフロー
+
+`ok: false`の場合、`max_iters`回まで反復します。
+
+```
+[ok: false 検出]
+    │
+    ▼
+[issues解析] → 修正計画を立案
+    │
+    ▼
+[Claude Codeが修正] ← 最小差分のみ、仕様変更は未解決issueに
+    │
+    ▼
+[テスト/リンタ実行] ← 可能であれば自動実行
+    │
+    ├─ 成功 → 再レビュー依頼
+    └─ 失敗 → 修正 → テスト/リンタ再実行（最大2回）
+           │
+           └─ 2回連続失敗 → ループ停止、ユーザー介入要求
+    │
+    ▼
+[Codexに再レビュー依頼]
+    │
+    ├─ ok: true → 完了
+    └─ ok: false → ループ継続（max_itersまで）
+```
+
+### テスト/リンタ自動実行
+
+修正適用後、以下のコマンドを自動実行します（プロジェクトに存在する場合）：
+
+```bash
+# TypeScript型チェック
+npx tsc --noEmit
+
+# ESLint
+npx eslint --fix .
+
+# Prettier
+npx prettier --write .
+
+# テスト実行
+npm test
+# または
+npx jest --passWithNoTests
+```
+
+### 停止条件
+
+以下のいずれかで修正ループを停止：
+
+1. **ok: true** - レビュー承認
+2. **max_iters到達** - 最大反復回数（デフォルト5回）
+3. **テスト2回連続失敗** - テストが安定しない場合
+
+### テスト失敗時の処理
+
+```
+テスト失敗（1回目）
+    │
+    ▼
+テスト失敗の原因を分析
+    │
+    ▼
+修正を適用
+    │
+    ▼
+テスト再実行
+    │
+    ├─ 成功 → 通常フローへ
+    └─ 失敗（2回目）→ ループ停止
+           │
+           ▼
+        ユーザーに通知:
+        「テストが2回連続で失敗しました。
+         手動での確認が必要です。」
+```
+
+### 未解決issueの扱い
+
+修正中に発見された以下の問題は「未解決issue」として記録：
+
+- 仕様変更が必要な問題
+- 他タスクに影響する問題
+- 修正コストが高すぎる問題
+
+これらは最終レポートの「未解決」セクションに記載し、手動対応を推奨。
 
 ---
 
 ## エラーハンドリング
 
 ### Codex呼び出し失敗
-- 3回リトライ（指数バックオフ: 5s, 15s, 45s）
-- 失敗継続時はユーザーに通知
+
+**リトライ戦略**:
+1. 通常のエラー: 1回リトライ
+2. タイムアウト: ファイル数を半分に分割してリトライ
+3. 再失敗: 該当ファイル群を「未レビュー」としてレポートに記録
+
+```
+タイムアウト発生
+    ↓
+ファイル数を半分に分割
+    ↓
+分割後のファイル群で再レビュー
+    ↓
+成功 → 残りのファイル群をレビュー
+失敗 → 「未レビュー」としてレポートに記録
+```
+
+**スキップ時の処理**:
+- archスキップ時: diffのみで続行
+- diffスキップ時: そのファイル群を「未レビュー」としてレポート
+- 未レビューファイルは手動確認推奨
 
 ### 無限ループ防止
-- 各フェーズ最大6回のレビューサイクル
-- 6回超過時はユーザー手動介入を要求
+- 各フェーズ最大5回のレビューサイクル（`max_iters`で設定可能）
+- 5回超過時はユーザー手動介入を要求
 
 ### JSON解析失敗
 - Codex出力が期待形式でない場合
 - raw出力をユーザーに提示して判断を委ねる
+
+### レビュー完了待ち（必須）
+- `codex exec`実行中は次の工程に進まない
+- 定期確認: 60秒ごとに最大20回、`poll i/20`と経過時間のみをログ
+- 20回到達後も未完了: タイムアウト扱いでエラー処理へ
+- 長時間無出力の場合: バックグラウンド実行してプロセス生存確認
 
 ---
 
@@ -324,20 +602,20 @@ initialized → requirements → design → tasks → impl → completed
 ### 初回レビュー
 ```bash
 # 基本形式
-codex exec --full-auto "[prompt]"
+codex exec --sandbox read-only "[prompt]"
 
 # 実装レビュー専用（コード差分ベース）
-codex exec --full-auto review --base main "[追加の指示]"
-codex exec --full-auto review --uncommitted "[追加の指示]"
+codex exec --sandbox read-only review --base main "[追加の指示]"
+codex exec --sandbox read-only review --uncommitted "[追加の指示]"
 ```
 
 ### 再レビュー（2回目以降）
 ```bash
 # 前回セッションを継続（コンテキスト保持、高速）
-codex exec --full-auto resume --last "[修正内容と再レビュー依頼]"
+codex exec --sandbox read-only resume --last "[修正内容と再レビュー依頼]"
 
 # 特定セッションを継続
-codex exec --full-auto resume [SESSION_ID] "[修正内容と再レビュー依頼]"
+codex exec --sandbox read-only resume [SESSION_ID] "[修正内容と再レビュー依頼]"
 ```
 
 **`resume`のメリット**:
@@ -493,7 +771,7 @@ STATEEOF
 ```python
 # Bash tool を run_in_background=true で使用
 result = Bash(
-    command='codex exec --full-auto "[レビュープロンプト]"',
+    command='codex exec --sandbox read-only "[レビュープロンプト]"',
     run_in_background=True
 )
 task_id = result.task_id  # 状態ファイルに追記
