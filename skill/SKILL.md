@@ -258,7 +258,7 @@ Codexレビュー APPROVED AND e2e_required = true AND e2e_evidence.status = "pe
                 │
                 ▼
    ┌────────────────────┐
-   │ 動画オープン&報告  │
+   │ エビデンス確認&報告│
    │ セクション完了     │
    └────────────────────┘
 ```
