@@ -150,7 +150,6 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 └── e2e-evidence/
     └── [feature-name]/
         └── [section-id]/
-            ├── recording.webm              # 画面録画（オプション）
             ├── step-01-initial.png         # 初期状態
             ├── step-02-action.png          # ユーザー操作後
             ├── step-03-validation.png      # バリデーション表示
@@ -161,15 +160,22 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 
 | ファイル種別 | 命名パターン | 必須/任意 | 説明 |
 |-------------|-------------|----------|------|
-| 録画 | `recording.webm` | **任意** | セクション全体の録画（外部ツール使用時） |
-| スクリーンショット | `step-NN-description.png` | **必須** | 各ステップの状態 |
+| スクリーンショット | `step-NN-description.png` | **必須** | 各ステップの状態（Playwright MCP で取得） |
 
-### 重要: 録画はオプション
+### 重要: スクリーンショットがエビデンスの主体
 
-Playwright MCP は直接的な録画機能を提供しないため、`video_path` は **null 許容** です。
-スクリーンショットのみでエビデンスとして有効です。
+Playwright MCP は直接的な録画機能を提供しないため、**スクリーンショットのみ**がエビデンスとなります。
+`video_path` フィールドは通常 `null` です。
 
-録画が必要な場合は、OS標準の画面録画ツールを別途使用してください。
+#### 外部録画ツール使用時（オプション）
+
+OS標準の画面録画ツール等を使用して録画を取得した場合のみ、手動で以下を追加可能：
+
+```
+.context/e2e-evidence/[feature]/[section]/recording.webm
+```
+
+この場合、`spec.json` の `e2e_evidence.video_path` に録画パスを設定します。
 
 ### .gitignore設定
 

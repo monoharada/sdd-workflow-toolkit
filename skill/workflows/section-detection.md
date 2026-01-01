@@ -170,10 +170,23 @@ FUNCTION isSectionCompleteByFiles(sectionId):
 
 FUNCTION hasFileChanges(file, baseBranch = "main"):
     // コミット済み変更 OR 未コミット変更 を検出
+    // git diff main..HEAD: mainブランチからHEADまでのコミット済み差分
+    // git diff HEAD: HEADから作業ツリーまでの未コミット差分（staged + unstaged）
     committed = exec("git diff " + baseBranch + "..HEAD -- " + file)
     uncommitted = exec("git diff HEAD -- " + file)
     RETURN committed.length > 0 OR uncommitted.length > 0
 ```
+
+### git diff コマンドの意味
+
+| コマンド | 検出対象 | 説明 |
+|----------|----------|------|
+| `git diff main..HEAD -- file` | コミット済み | mainブランチからHEADまでの差分 |
+| `git diff HEAD -- file` | 未コミット全体 | staged + unstaged の変更 |
+| `git diff --staged -- file` | staged のみ | `git add` 済みの変更のみ |
+| `git diff -- file` | unstaged のみ | `git add` 前の変更のみ |
+
+本実装では `git diff HEAD` を使用して、staged/unstaged 両方の未コミット変更を検出します。
 
 ### タスク完了フラグのスキーマ
 
