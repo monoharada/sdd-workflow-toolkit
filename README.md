@@ -205,6 +205,8 @@ args: impl $1
 
 詳細は `integration/kiro-command-snippet.md` を参照。
 
+- オプション: `/kiro:spec-requirements` にインタビュー機能を追加（タイムボックス、日本語AskUserQuestionTool）— [docs/kiro-spec-requirements-preflight-interview.md](docs/kiro-spec-requirements-preflight-interview.md) を参照
+
 ## spec.json の更新
 
 レビュー完了時、`spec.json` に以下の情報が追加されます：
