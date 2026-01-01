@@ -1,8 +1,8 @@
-# SDD Codex Review Plugin 強化計画
+# SDD Workflow Toolkit 強化計画
 
 ## 概要
 
-makaneko氏の「codex-review」スキル（[参考記事](https://note.com/makaneko_ai/n/n3cefcec49e2d)）を参考に、sdd-codex-review-pluginを強化する。
+makaneko氏の「codex-review」スキル（[参考記事](https://note.com/makaneko_ai/n/n3cefcec49e2d)）を参考に、sdd-workflow-toolkitを強化する。
 
 ## 現状分析
 

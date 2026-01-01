@@ -1,10 +1,10 @@
-# SDD Codex Review Plugin
+# SDD Workflow Toolkit
 
-Claude Code用 Spec-Driven Development (SDD) 外部レビュースキル
+Claude Code用 Spec-Driven Development (SDD) ワークフローサポートツールキット
 
 ## 概要
 
-このプラグインは、[OpenAI Codex CLI](https://github.com/openai/codex) を使用してClaude Codeの成果物を**独立レビュー**するスキルです。同一モデルによる自己レビューの盲点を排除し、品質を第三者保証します。
+このツールキットは、[OpenAI Codex CLI](https://github.com/openai/codex) を使用してClaude Codeの成果物を**独立レビュー**し、SDDワークフロー全体をサポートします。
 
 ### なぜ外部レビューが重要か
 
@@ -12,166 +12,73 @@ Claude Code用 Spec-Driven Development (SDD) 外部レビュースキル
 - **確証バイアスの排除**: 生成者と異なるレビュアーによる客観的評価
 - **追跡可能性**: Codex Session IDによるレビュー履歴の証跡
 
+---
+
 ## 特徴
 
-- 4フェーズ対応: requirements, design, tasks, impl
-- 自動修正・再レビューループ（最大6回）
-- Kiroコマンドとのシームレスな統合
-- 構造化JSONレスポンスによる自動判定
+| 機能 | 説明 |
+|------|------|
+| **4フェーズCodexレビュー** | requirements → design → tasks → impl の各フェーズを自動レビュー |
+| **セクション単位レビュー** | tasks.mdのセクション単位で効率的にimplをレビュー |
+| **E2Eエビデンス収集** | Playwright MCPでレビュー承認後のスクリーンショットを自動収集 |
+| **プリフライトインタビュー** | 要件生成前にタイムボックス付き日本語質問で要件を明確化 |
+| **規模別レビュー戦略** | small/medium/largeに応じた最適なレビュー戦略を自動選択 |
+| **コンテキスト節約モード** | バックグラウンド実行と状態保存で長時間セッションも快適 |
 
-## 前提条件
+---
 
-### 必須
+## クイックスタート
+
+### 前提条件
 
 1. **Claude Code** がインストール済み
 2. **Codex CLI** がインストール済み
    ```bash
    npm install -g @openai/codex
+   codex auth status  # 認証確認
    ```
 3. **Kiro spec構造** (`.kiro/specs/[feature]/`)
-   - requirements.md
-   - design.md
-   - tasks.md
-   - spec.json
 
-### 推奨
-
-- Kiroコマンド群 (`/kiro:spec-*`) が利用可能
-
-## インストール
-
-### 方法1: git clone（推奨）
+### インストール
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/monoharada/sdd-codex-review-plugin.git
+git clone https://github.com/monoharada/sdd-workflow-toolkit.git
 
 # スキルディレクトリにコピー
-cp -r sdd-codex-review-plugin/skill ~/.claude/skills/sdd-codex-review
+cp -r sdd-workflow-toolkit/skill ~/.claude/skills/sdd-codex-review
 ```
 
-### 方法2: 手動コピー
-
-1. このリポジトリの `skill/` ディレクトリをダウンロード
-2. `~/.claude/skills/sdd-codex-review/` に配置
-
-### CLAUDE.md への統合
-
-プロジェクトの `CLAUDE.md` に以下のスニペットを追加してください：
-
-```markdown
-### Codex Review Workflow (必須)
-
-**重要**: 各kiro:specフェーズ完了後、必ずCodexレビューを実行すること。
-
-\`\`\`bash
-# 各フェーズ完了後にCodexレビューを実行
-/sdd-codex-review requirements [feature]  # kiro:spec-requirements後
-/sdd-codex-review design [feature]        # kiro:spec-design後
-/sdd-codex-review tasks [feature]         # kiro:spec-tasks後
-/sdd-codex-review impl [feature]          # kiro:spec-impl後
-\`\`\`
-
-ワークフロー:
-1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
-2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
-3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
-4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
-
-各フェーズでAPPROVEDを取得してから次へ進む。
-```
-
-詳細なスニペットは `integration/` ディレクトリを参照してください。
-
-## 使用方法
-
-### 基本コマンド
+### コマンド一覧
 
 ```bash
-# 要件レビュー
+# フェーズ別レビュー
 /sdd-codex-review requirements [feature-name]
-
-# 設計レビュー
 /sdd-codex-review design [feature-name]
-
-# タスクレビュー
 /sdd-codex-review tasks [feature-name]
-
-# 実装レビュー
 /sdd-codex-review impl [feature-name]
 
-# 自動進行モード（現在のフェーズから順次レビュー）
+# セクション単位レビュー（推奨）
+/sdd-codex-review impl-section [feature-name] [section-id]
+/sdd-codex-review impl-pending [feature-name]
+
+# E2Eエビデンス収集
+/sdd-codex-review e2e-evidence [feature-name] [section-id]
+
+# 自動進行モード
 /sdd-codex-review auto [feature-name]
 ```
 
-### 4フェーズの詳細
+---
 
-#### Phase 1: 要件レビュー (requirements)
-
-**対象**: `.kiro/specs/[feature]/requirements.md`
-
-**レビュー基準**:
-- 完全性: 全機能要件のカバー
-- 明確性: 曖昧な表現の排除
-- テスト可能性: 検証可能な受け入れ基準
-- EARS形式準拠: When/If/The system shall
-
-**判定**: `OK` or `NEEDS_REVISION`
-
-#### Phase 2: 設計レビュー (design)
-
-**対象**: `.kiro/specs/[feature]/design.md`
-
-**レビュー基準**:
-- 既存アーキテクチャとの整合性
-- 設計の一貫性と標準
-- 拡張性と保守性
-- 型安全性とインターフェース設計
-
-**判定**: `GO` or `NO_GO`
-
-#### Phase 3: タスクレビュー (tasks)
-
-**対象**: `.kiro/specs/[feature]/tasks.md`
-
-**レビュー基準**:
-- 要件カバレッジ
-- タスク粒度（1-4時間）
-- 依存関係の明確さ
-- 並列実行可能性
-
-**判定**: `APPROVED` or `NEEDS_REVISION`
-
-#### Phase 4: 実装レビュー (impl)
-
-**対象**: 変更されたソースファイル
-
-**レビュー基準**:
-- 要件準拠
-- 設計準拠
-- コード品質
-- テストカバレッジ
-- セキュリティ
-
-**判定**: `APPROVED` or `NEEDS_REVISION`
-
-### 判定基準
-
-| フェーズ | PASS条件 |
-|---------|----------|
-| requirements | critical = 0 かつ medium ≦ 2 |
-| design | critical issues ≦ 3 |
-| tasks | critical = 0 かつ medium ≦ 2 かつ 未カバー要件 = 0 |
-| impl | critical = 0 かつ medium ≦ 2 かつ 未達成要件 = 0 |
-
-## Kiroワークフローとの統合
+## Kiroワークフロー統合
 
 ### 推奨ワークフロー
 
 ```
 /kiro:spec-requirements [feature]
     ↓
-/sdd-codex-review requirements [feature]  ← APPROVED
+/sdd-codex-review requirements [feature]  ← OK
     ↓
 /kiro:spec-design [feature]
     ↓
@@ -183,116 +90,176 @@ cp -r sdd-codex-review-plugin/skill ~/.claude/skills/sdd-codex-review
     ↓
 /kiro:spec-impl [feature] [task]
     ↓
-/sdd-codex-review impl [feature]          ← APPROVED
+/sdd-codex-review impl-section [feature] [section-id]  ← APPROVED
     ↓
-次のタスクまたは完了
+（[E2E]タグ付きセクションの場合）
+/sdd-codex-review e2e-evidence [feature] [section-id]
+    ↓
+次のセクションまたは完了
 ```
 
-### spec-impl からの自動呼び出し
-
-`/kiro:spec-impl` コマンドで実装完了後、自動的にCodexレビューを呼び出すには、Kiroコマンド定義に以下を追加：
-
-```markdown
-## 実装完了後の処理
-
-実装が完了したら、必ず Skill tool を使用して sdd-codex-review impl を実行：
-
-\`\`\`
-Skill tool invoke: "sdd-codex-review"
-args: impl $1
-\`\`\`
-```
-
-詳細は `integration/kiro-command-snippet.md` を参照。
-
-- オプション: `/kiro:spec-requirements` にインタビュー機能を追加（タイムボックス、日本語AskUserQuestionTool）— [docs/kiro-spec-requirements-preflight-interview.md](docs/kiro-spec-requirements-preflight-interview.md) を参照
-
-## spec.json の更新
+### spec.json 自動更新
 
 レビュー完了時、`spec.json` に以下の情報が追加されます：
 
 ```json
 {
   "phase": "requirements-approved",
-  "approvals": {
-    "requirements": { "approved": true },
-    "design": { "approved": false },
-    "tasks": { "approved": false }
-  },
+  "approvals": { "requirements": { "approved": true } },
   "codex_reviews": {
     "requirements": {
-      "review_count": 2,
+      "session_id": "codex-xxx",
       "final_verdict": "OK",
-      "resolved_issues": 3,
-      "timestamp": "2025-12-29T12:00:00.000Z"
+      "review_count": 2,
+      "resolved_issues": 3
     }
   }
 }
 ```
+
+---
+
+## セクション単位レビュー
+
+### セクション定義
+
+tasks.mdの`##`見出しでセクションを定義：
+
+```markdown
+## Section 1: Core Foundation
+### Task 1.1: Define base types
+**Creates:** `src/types/base.ts`
+
+### Task 1.2: Implement utilities
+**Creates:** `src/utils/helpers.ts`
+
+## Section 2: Feature Implementation [E2E]
+### Task 2.1: Build main component
+**Creates:** `src/components/Main.tsx`
+**E2E:** 初期表示、ユーザー操作確認
+```
+
+### 完了検知ロジック
+
+1. `**Creates:**`/`**Modifies:**` からファイル一覧を抽出
+2. 全ファイルの存在を確認
+3. 完了 AND 未レビュー → Codexレビュー実行
+
+### コマンド
+
+| コマンド | 説明 |
+|----------|------|
+| `impl-section [feature] [section-id]` | 特定セクションをレビュー |
+| `impl-pending [feature]` | 完了済み・未レビューのセクションを順次レビュー |
+
+---
+
+## E2Eエビデンス収集
+
+### トリガー条件
+
+```
+Codexレビュー APPROVED AND [E2E]タグ付きセクション
+```
+
+### 実行フロー
+
+1. セクションのCodexレビューが承認される
+2. `[E2E]`タグを検出
+3. Playwright MCPでスクリーンショットを収集
+4. `.context/e2e-evidence/[feature]/[section]/` に保存
+
+### 重要
+
+**E2E失敗はブロッキングではありません** - エビデンス目的であり、品質ゲートではありません。
+
+---
+
+## 規模別レビュー戦略
+
+implフェーズでは変更規模に応じて自動的に最適な戦略を選択：
+
+| 規模 | ファイル数 | 行数 | 戦略 |
+|------|-----------|------|------|
+| small | ≤3 | ≤100 | diff のみ |
+| medium | 4-10 | 100-500 | arch → diff |
+| large | >10 | >500 | arch → 並列diff → cross-check |
+
+### 各戦略の説明
+
+- **diff**: 変更差分のみをレビュー
+- **arch**: アーキテクチャ整合性確認（依存関係、責務分割、セキュリティ設計）
+- **並列diff**: ファイルを3-5グループに分割して並列レビュー
+- **cross-check**: グループ間の横断的整合性確認
+
+---
+
+## 判定基準
+
+### severity
+
+| severity | 意味 | 影響 |
+|----------|------|------|
+| **blocking** | 修正必須 | 1件でも `ok: false` |
+| **advisory** | 推奨・警告 | `ok: true` でも出力可 |
+
+### フェーズ別verdict
+
+| Phase | PASS | FAIL |
+|-------|------|------|
+| requirements | OK | NEEDS_REVISION |
+| design | GO | NO_GO |
+| tasks | APPROVED | NEEDS_REVISION |
+| impl | APPROVED | NEEDS_REVISION |
+
+---
 
 ## トラブルシューティング
 
 ### Codex CLIが見つからない
 
 ```bash
-# インストール確認
-which codex
-
-# 未インストールの場合
 npm install -g @openai/codex
-
-# 認証確認
 codex auth status
 ```
 
-### レビューが6回超過
+### レビューが5回超過
 
-最大6回のレビューサイクル後も承認されない場合、手動介入が必要です：
-
-1. Codexの指摘事項を確認
-2. 手動で修正を適用
-3. 再度 `/sdd-codex-review [phase] [feature]` を実行
-
-### JSON解析エラー
-
-Codexの出力が期待形式でない場合：
-
-1. raw出力が表示されます
-2. 手動で判定を確認
-3. 必要に応じて再レビュー
+最大5回のレビューサイクル後も承認されない場合、手動介入が必要です。
 
 ### Session IDがない
 
-レビュー報告にSession IDがない場合、シミュレートの可能性があります：
+レビュー報告にSession IDがない場合、シミュレートの可能性があります。
 
-```
-「本当にcodexにレビューしてもらった？」
-```
-
-と質問して確認してください。
+---
 
 ## ディレクトリ構造
 
 ```
-sdd-codex-review-plugin/
+sdd-workflow-toolkit/
 ├── README.md
+├── CLAUDE.md
 ├── LICENSE
 ├── skill/
-│   ├── SKILL.md                  # メインスキル定義（~200行）
-│   ├── prompts/                  # Codexレビュープロンプト
+│   ├── SKILL.md                  # メインスキル定義
+│   ├── prompts/
 │   │   ├── requirements-review.md
 │   │   ├── design-review.md
 │   │   ├── tasks-review.md
 │   │   ├── impl-review.md
+│   │   ├── section-impl-review.md
+│   │   ├── e2e-evidence-prompt.md
 │   │   ├── arch-review.md
 │   │   └── cross-check-review.md
-│   ├── workflows/                # 詳細ワークフロー
+│   ├── workflows/
 │   │   ├── phase-workflows.md
+│   │   ├── section-detection.md
+│   │   ├── e2e-evidence.md
 │   │   ├── scale-strategies.md
 │   │   └── context-saving.md
-│   ├── reference/                # 参照ドキュメント
+│   ├── reference/
 │   │   └── spec-json-format.md
-│   ├── evaluations/              # 評価シナリオ
+│   ├── evaluations/
 │   │   ├── requirements-review-eval.json
 │   │   ├── design-review-eval.json
 │   │   └── impl-review-eval.json
@@ -300,9 +267,14 @@ sdd-codex-review-plugin/
 │       └── review-report.md
 ├── integration/
 │   ├── claude-md-snippet.md
-│   └── kiro-command-snippet.md
+│   ├── kiro-command-snippet.md
+│   └── kiro-spec-requirements-preflight-interview-snippet.md
+├── docs/
+│   ├── ENHANCEMENT_PLAN.md
+│   └── kiro-spec-requirements-preflight-interview.md
 └── examples/
-    └── spec-json-example.json
+    ├── spec-json-example.json
+    └── spec-requirements-template.md
 ```
 
 ---
@@ -311,27 +283,15 @@ sdd-codex-review-plugin/
 
 This skill follows [Claude Agent Skills Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).
 
-### Compliance Status
+| Criterion | Status |
+|-----------|--------|
+| Naming Convention | ✅ `sdd-codex-review` |
+| Progressive Disclosure | ✅ workflows/, reference/, prompts/ |
+| Feedback Loops | ✅ Auto-fix → test → re-review |
+| Error Handling | ✅ Retry, timeout, fallback |
+| Evaluations | ✅ 3 scenarios in evaluations/ |
 
-| Criterion | Status | Notes |
-|-----------|--------|-------|
-| **Naming Convention** | ✅ | `sdd-codex-review` - lowercase with hyphens |
-| **Description** | ✅ | Third-person, English + Japanese, includes triggers |
-| **File Size** | ✅ | SKILL.md ~200 lines (< 500 limit) |
-| **Progressive Disclosure** | ✅ | Details in workflows/, reference/, prompts/ |
-| **One-Level References** | ✅ | All refs directly from SKILL.md |
-| **Feedback Loops** | ✅ | Auto-fix → test → re-review loop |
-| **Workflows** | ✅ | Step-by-step with clear stop conditions |
-| **Error Handling** | ✅ | Retry, timeout, fallback strategies |
-| **Evaluations** | ✅ | 3 evaluation scenarios in evaluations/ |
-| **Consistent Terminology** | ✅ | Unified terms: blocking/advisory, verdict, phase |
-
-### Key Design Decisions
-
-1. **Conciseness**: Main SKILL.md contains only essentials; details are in separate files
-2. **Bilingual**: Description in English for discoverability, body in Japanese for local team
-3. **No Simulation**: Explicit prohibition with Session ID verification
-4. **Degrees of Freedom**: Low (specific codex commands) for reliability
+---
 
 ## ライセンス
 
@@ -342,43 +302,3 @@ MIT License
 - [OpenAI Codex CLI](https://github.com/openai/codex)
 - [Claude Code](https://claude.ai/code)
 - [Kiro](https://kiro.dev/) (Spec-Driven Development)
-
-
-## コンテキスト節約モード（自動実行）
-
-このスキルは、Codexレビュー時に**自動的に**コンテキスト節約を行います。
-オプション指定は不要です。
-
-### 自動で行われること
-
-1. **状態保存**: `.context/sdd-review-state.json` に復元用情報を保存
-2. **バックグラウンド実行**: Codexをバックグラウンドで起動
-3. **圧縮提案**: 「コンテキストを圧縮しますか？」と提案
-4. **自動復元**: 結果取得後、状態から復元して続行
-5. **クリーンアップ**: 完了後に一時ファイルを削除
-
-### ユーザー体験
-
-```
-/sdd-codex-review requirements my-feature
-    │
-    ▼
-「Codexレビューをバックグラウンドで実行中...」
-「コンテキストを圧縮しますか？」
-    │
-    ├─ 「圧縮して」→ コンテキスト圧縮、メモリ解放
-    ├─ 別作業を続ける → 他のファイル編集など
-    └─ 待機 → そのまま待つ
-    │
-    ▼
-（レビュー完了後、自動的に結果を取得・処理）
-「レビュー完了: OK」
-```
-
-### メリット
-
-- **自動化**: ユーザーが何も指定しなくても最適化
-- **メモリ効率**: 長時間セッションでも快適に動作
-- **中断耐性**: セッションが切れても状態から復元可能
-
-詳細は `skill/SKILL.md` の「コンテキスト節約モード」セクションを参照。
