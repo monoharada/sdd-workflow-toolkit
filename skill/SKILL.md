@@ -62,9 +62,21 @@ OKが出るまでフィードバックループを繰り返します。
 /sdd-codex-review tasks [feature-name]
 /sdd-codex-review impl [feature-name]
 
+# セクション単位のimplレビュー（推奨）
+/sdd-codex-review impl-section [feature-name] [section-id]
+/sdd-codex-review impl-pending [feature-name]
+
 # 自動進行モード
 /sdd-codex-review auto [feature-name]
 ```
+
+### セクション単位レビューコマンド
+
+| コマンド | 説明 |
+|----------|------|
+| `impl-section [feature] [section-id]` | 特定セクションをレビュー |
+| `impl-pending [feature]` | 完了済み・未レビューのセクションを全てレビュー |
+| `impl [feature]` | 全実装を一括レビュー（従来方式） |
 
 ---
 
@@ -84,6 +96,90 @@ OKが出るまでフィードバックループを繰り返します。
 │ ユーザー報告 │                └──────────┘          │ 介入要求 │
 └──────────────┘                                      └──────────┘
 ```
+
+---
+
+## セクション単位レビュー
+
+### 概要
+
+実装フェーズでは、**セクション単位**でレビューを実行することを推奨します。
+これにより、タスクごとのレビューオーバーヘッドを削減し、効率的なレビューサイクルを実現します。
+
+### セクション定義
+
+tasks.mdの`##`見出しでセクションを定義：
+
+```markdown
+## Section 1: Core Foundation
+### Task 1.1: Define base types
+**Creates:** `src/types/base.ts`
+
+### Task 1.2: Implement utilities
+**Creates:** `src/utils/helpers.ts`
+
+## Section 2: Feature Implementation
+### Task 2.1: Build main component
+**Creates:** `src/components/Main.tsx`
+```
+
+### 完了検知アルゴリズム
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌─────────────┐
+│ タスク実装  │ ──▶ │ セクション完了   │ ──▶ │ 全ファイル  │
+│ 完了        │     │ チェック         │     │ 存在?       │
+└─────────────┘     └──────────────────┘     └──────┬──────┘
+                                                    │
+                            ┌───────────────────────┴───────┐
+                            │ YES                           │ NO
+                            ▼                               ▼
+                    ┌──────────────┐                ┌──────────────┐
+                    │ レビュー済み?│                │ 次タスクへ   │
+                    └──────┬───────┘                └──────────────┘
+                           │ NO
+                           ▼
+                    ┌──────────────┐
+                    │ Codex Review │
+                    │ 実行         │
+                    └──────────────┘
+```
+
+### 完了検知ロジック
+
+1. **セクション解析**: tasks.mdから`##`見出しを検出
+2. **ファイル抽出**: 各タスクの`**Creates:**`/`**Modifies:**`からファイル一覧を取得
+3. **存在確認**: 全期待ファイルが存在するか確認
+4. **レビュートリガー**: 完了 AND 未レビュー の場合にレビュー実行
+
+### impl-section コマンド
+
+特定のセクションをレビュー：
+
+```bash
+/sdd-codex-review impl-section my-feature section-1-core-foundation
+```
+
+**処理フロー**:
+1. `.kiro/specs/[feature]/tasks.md`を解析
+2. 指定セクションのタスク・ファイル一覧を取得
+3. セクション専用プロンプトでCodex実行
+4. spec.jsonの`section_tracking`と`codex_reviews.impl.sections`を更新
+
+### impl-pending コマンド
+
+完了済み・未レビューのセクションを順次レビュー：
+
+```bash
+/sdd-codex-review impl-pending my-feature
+```
+
+**処理フロー**:
+1. spec.jsonから`section_tracking`を読み込み
+2. `status === "complete" && reviewed === false`のセクションを抽出
+3. 各セクションに対して`impl-section`相当の処理を実行
+
+詳細: [workflows/section-detection.md](workflows/section-detection.md)
 
 ---
 

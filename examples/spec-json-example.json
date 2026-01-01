@@ -19,6 +19,38 @@
     }
   },
   "ready_for_implementation": true,
+  "section_tracking": {
+    "enabled": true,
+    "total_sections": 2,
+    "completed_sections": 2,
+    "reviewed_sections": 2,
+    "current_section": null,
+    "sections": {
+      "section-1-core-foundation": {
+        "name": "Section 1: Core Foundation",
+        "tasks": ["1.1", "1.2"],
+        "expected_files": [
+          "src/types/base.ts",
+          "src/utils/helpers.ts",
+          "src/utils/helpers.test.ts"
+        ],
+        "status": "complete",
+        "reviewed": true,
+        "review_session_id": "codex-section1-abc123"
+      },
+      "section-2-feature-impl": {
+        "name": "Section 2: Feature Implementation",
+        "tasks": ["2.1", "2.2"],
+        "expected_files": [
+          "src/components/Main.tsx",
+          "src/components/Main.test.tsx"
+        ],
+        "status": "complete",
+        "reviewed": true,
+        "review_session_id": "codex-section2-def456"
+      }
+    }
+  },
   "codex_reviews": {
     "requirements": {
       "review_count": 2,
@@ -42,10 +74,25 @@
       "timestamp": "2025-12-29T14:00:00.000Z"
     },
     "impl": {
-      "review_count": 3,
+      "mode": "section",
+      "sections": {
+        "section-1-core-foundation": {
+          "review_count": 1,
+          "final_verdict": "APPROVED",
+          "resolved_issues": 2,
+          "session_id": "codex-section1-abc123",
+          "timestamp": "2025-12-29T14:30:00.000Z"
+        },
+        "section-2-feature-impl": {
+          "review_count": 2,
+          "final_verdict": "APPROVED",
+          "resolved_issues": 3,
+          "session_id": "codex-section2-def456",
+          "timestamp": "2025-12-29T15:30:00.000Z"
+        }
+      },
+      "all_sections_approved": true,
       "final_verdict": "APPROVED",
-      "resolved_issues": 5,
-      "session_id": "codex-session-jkl012",
       "timestamp": "2025-12-29T15:30:00.000Z"
     }
   }

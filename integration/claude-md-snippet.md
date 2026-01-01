@@ -9,23 +9,38 @@
 ```markdown
 ### Codex Review Workflow (必須)
 
-**重要**: 各kiro:specフェーズ完了後、必ずCodexレビューを実行すること。
+**重要**: 各kiro:specフェーズ完了後、Codexレビューを実行すること。
 
 ```bash
-# 各フェーズ完了後にCodexレビューを実行
+# 要件・設計・タスクフェーズ：フェーズ完了後すぐにレビュー
 /sdd-codex-review requirements [feature]  # kiro:spec-requirements後
 /sdd-codex-review design [feature]        # kiro:spec-design後
 /sdd-codex-review tasks [feature]         # kiro:spec-tasks後
-/sdd-codex-review impl [feature]          # kiro:spec-impl後
+
+# 実装フェーズ：セクション完了時のみレビュー（タスクごとではない）
+/sdd-codex-review impl-section [feature] [section-id]  # セクション完了時
+/sdd-codex-review impl-pending [feature]               # 完了済み未レビューセクションを一括
 ```
 
-ワークフロー:
+#### ワークフロー
+
 1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
 2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
 3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
-4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
+4. `/kiro:spec-impl [feature] [task]` → **セクション完了時のみ** → `/sdd-codex-review impl-section [feature] [section-id]`
 
 各フェーズでAPPROVEDを取得してから次へ進む。
+
+#### セクション単位レビューの仕組み
+
+実装フェーズでは、**タスクごと**ではなく**セクション単位**でレビューを実行：
+
+1. tasks.mdの`##`見出しでセクションを定義
+2. 各タスクの`**Creates:**`で期待ファイルを指定
+3. セクション内の全ファイルが存在 → セクション完了
+4. 完了 AND 未レビュー → Codexレビュー実行
+
+これにより、レビューオーバーヘッドを削減しつつ、セクション間の整合性を確保。
 ```
 
 ---
@@ -47,21 +62,23 @@
 
 ### Codex Review Workflow (必須)
 
-**重要**: 各kiro:specフェーズ完了後、必ずCodexレビューを実行すること。
+**重要**: 各kiro:specフェーズ完了後、Codexレビューを実行すること。
 
 ```bash
-# 各フェーズ完了後にCodexレビューを実行
-/sdd-codex-review requirements [feature]  # kiro:spec-requirements後
-/sdd-codex-review design [feature]        # kiro:spec-design後
-/sdd-codex-review tasks [feature]         # kiro:spec-tasks後
-/sdd-codex-review impl [feature]          # kiro:spec-impl後
+# 要件・設計・タスクフェーズ
+/sdd-codex-review requirements [feature]
+/sdd-codex-review design [feature]
+/sdd-codex-review tasks [feature]
+
+# 実装フェーズ：セクション完了時のみ
+/sdd-codex-review impl-section [feature] [section-id]
 ```
 
 ワークフロー:
-1. `/kiro:spec-requirements [feature]` → `/sdd-codex-review requirements [feature]`
-2. `/kiro:spec-design [feature]` → `/sdd-codex-review design [feature]`
-3. `/kiro:spec-tasks [feature]` → `/sdd-codex-review tasks [feature]`
-4. `/kiro:spec-impl [feature] [task]` → `/sdd-codex-review impl [feature]`
+1. `/kiro:spec-requirements` → `/sdd-codex-review requirements`
+2. `/kiro:spec-design` → `/sdd-codex-review design`
+3. `/kiro:spec-tasks` → `/sdd-codex-review tasks`
+4. `/kiro:spec-impl` → セクション完了時のみ → `/sdd-codex-review impl-section`
 
 各フェーズでAPPROVEDを取得してから次へ進む。
 
@@ -74,5 +91,6 @@
 ## 注意事項
 
 - このスニペットを追加することで、Claude Codeは各フェーズ完了後にCodexレビューを実行するよう認識します
+- **実装フェーズはセクション単位**: タスクごとではなく、セクション完了時にレビューを実行
 - スキルが正しくインストールされていない場合、`/sdd-codex-review` コマンドは認識されません
 - スキルのインストールは `~/.claude/skills/sdd-codex-review/` に配置することで完了します
