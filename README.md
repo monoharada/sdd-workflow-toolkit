@@ -20,7 +20,7 @@ Claude Code用 Spec-Driven Development (SDD) ワークフローサポートツ�
 |------|------|
 | **4フェーズCodexレビュー** | requirements → design → tasks → impl の各フェーズを自動レビュー |
 | **セクション単位レビュー** | tasks.mdのセクション単位で効率的にimplをレビュー |
-| **E2Eエビデンス収集** | Playwright MCPでレビュー承認後のスクリーンショットを自動収集 |
+| **E2Eエビデンス収集** | Playwrightでレビュー承認後の画面録画とスクリーンショットを自動収集 |
 | **プリフライトインタビュー** | 要件生成前にタイムボックス付き日本語質問で要件を明確化 |
 | **規模別レビュー戦略** | small/medium/largeに応じた最適なレビュー戦略を自動選択 |
 | **コンテキスト節約モード** | バックグラウンド実行と状態保存で長時間セッションも快適 |
@@ -166,8 +166,8 @@ Codexレビュー APPROVED AND [E2E]タグ付きセクション
 
 1. セクションのCodexレビューが承認される
 2. `[E2E]`タグを検出
-3. Playwright MCPでスクリーンショットを収集
-4. `.context/e2e-evidence/[feature]/[section]/` に保存
+3. Playwrightで画面録画とスクリーンショットを収集
+4. `.context/e2e-evidence/[feature]/[section]/` に保存（recording.webm + step-*.png）
 
 ### 重要
 

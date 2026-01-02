@@ -126,8 +126,8 @@ Section completion detection:
 ### E2E Evidence Collection
 
 Triggered for `[E2E]` tagged sections AFTER Codex review approval:
-1. Execute Playwright MCP to capture screenshots
-2. Save to `.context/e2e-evidence/[feature]/[section]/`
+1. Execute Playwright to capture video recording and screenshots
+2. Save to `.context/e2e-evidence/[feature]/[section]/` (recording.webm + step-*.png)
 3. Update `e2e_evidence` in spec.json
 
 E2E failure is NOT blocking - it's for evidence only.

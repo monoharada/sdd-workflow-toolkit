@@ -66,9 +66,9 @@ IF section_complete AND NOT section_reviewed:
 
     // E2Eエビデンス収集（レビュー承認後、[E2E]タグ付きセクションのみ）
     IF section.e2e_required AND section.e2e_evidence.status == "pending":
-        Playwright MCPでE2Eエビデンス収集
-        結果を .context/e2e-evidence/ に保存
-        ユーザーにスクリーンショットパスを報告
+        Playwrightで画面録画とスクリーンショットを収集
+        結果を .context/e2e-evidence/ に保存（recording.webm + step-*.png）
+        ユーザーに録画とスクリーンショットのパスを報告
         E2E失敗でも次へ続行
 
 ELSE:
@@ -86,9 +86,9 @@ ELSE:
       - NEEDS_REVISION の場合は修正を適用して再レビュー
       - APPROVED になるまでループ
    b. **E2Eエビデンス収集**（APPROVED後、`[E2E]`タグ付きセクションのみ）：
-      - Playwright MCPでスクリーンショット収集
-      - `.context/e2e-evidence/`に保存
-      - ユーザーにパスを報告
+      - Playwrightで画面録画とスクリーンショット収集
+      - `.context/e2e-evidence/`に保存（recording.webm + step-*.png）
+      - ユーザーに録画とスクリーンショットのパスを報告
       - E2E失敗でもセクション完了として扱う
    c. 次のセクション/タスクへ進む
 4. セクション未完了の場合：
