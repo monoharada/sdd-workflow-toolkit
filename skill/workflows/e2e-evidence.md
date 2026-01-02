@@ -6,8 +6,15 @@
 
 ## 概要
 
-UIに関連するセクションでは、**Codexレビューで承認された後**に Playwright MCP を使用してE2Eテストを実行し、
-画面録画とスクリーンショットをエビデンスとして収集します。
+UIに関連するセクションでは、**Codexレビューで承認された後**に Playwright を使用してE2Eテストを実行し、
+**画面録画とスクリーンショット**の両方をエビデンスとして収集します。
+
+### エビデンスの種類
+
+| 種類 | 必須 | 説明 |
+|------|------|------|
+| 画面録画 | **必須** | セクション全体の操作を録画（.webm形式） |
+| スクリーンショット | **必須** | 各ステップの静止画（.png形式） |
 
 ### なぜレビュー後に実行するのか
 
@@ -99,10 +106,12 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
                     │
                     ▼
 ┌───────────────────────────────┐
-│  Playwright MCP 実行          │
+│  Playwright 実行              │
 │  - アプリケーションURL取得     │
+│  - 録画開始 (recordVideo)      │
 │  - E2Eシナリオ実行            │
 │  - 各ステップでスクリーンショット取得 │
+│  - 録画保存                   │
 └───────────────────────────────┘
                     │
            ┌───────┴───────┐
@@ -150,6 +159,7 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 └── e2e-evidence/
     └── [feature-name]/
         └── [section-id]/
+            ├── recording.webm              # 画面録画（必須）
             ├── step-01-initial.png         # 初期状態
             ├── step-02-action.png          # ユーザー操作後
             ├── step-03-validation.png      # バリデーション表示
@@ -160,22 +170,17 @@ E2Eエビデンス収集は**Codexレビューで APPROVED を取得した後**�
 
 | ファイル種別 | 命名パターン | 必須/任意 | 説明 |
 |-------------|-------------|----------|------|
-| スクリーンショット | `step-NN-description.png` | **必須** | 各ステップの状態（Playwright MCP で取得） |
+| 画面録画 | `recording.webm` | **必須** | セクション全体の操作録画（Playwrightで取得） |
+| スクリーンショット | `step-NN-description.png` | **必須** | 各ステップの状態 |
 
-### 重要: スクリーンショットがエビデンスの主体
+**注意**: `video_path` は `pending` 状態（E2E未実行）および録画取得失敗時のみ `null` となります。
 
-Playwright MCP は直接的な録画機能を提供しないため、**スクリーンショットのみ**がエビデンスとなります。
-`video_path` フィールドは通常 `null` です。
+### 録画とスクリーンショットの両方が必須
 
-#### 外部録画ツール使用時（オプション）
+E2Eエビデンスとして、**画面録画とスクリーンショットの両方**を収集します。
 
-OS標準の画面録画ツール等を使用して録画を取得した場合のみ、手動で以下を追加可能：
-
-```
-.context/e2e-evidence/[feature]/[section]/recording.webm
-```
-
-この場合、`spec.json` の `e2e_evidence.video_path` に録画パスを設定します。
+- **画面録画**: 操作の流れを動画で記録。問題発生時の再現やデバッグに有用
+- **スクリーンショット**: 各ステップの状態を静止画で記録。ドキュメントやレビューに有用
 
 ### .gitignore設定
 
@@ -186,30 +191,56 @@ OS標準の画面録画ツール等を使用して録画を取得した場合の
 
 ---
 
-## Playwright MCP 実行
+## Playwright 実行
 
 ### 前提条件
 
-1. Playwright MCP がインストールされていること
+1. Playwrightがインストールされていること (`npx playwright install`)
 2. 対象アプリケーションがローカルで起動していること
 3. アプリケーションURLが取得可能であること
 
 ### 実行コマンド構造
 
-E2Eエビデンス収集は Playwright MCP の以下の機能を使用：
+E2Eエビデンス収集は Playwright の以下の機能を使用：
 
 ```
-1. browser_navigate: アプリケーションURLに遷移
-2. browser_screenshot: 各ステップでスクリーンショット取得
-3. browser_click / browser_type: ユーザー操作のシミュレーション
+1. page.goto(): アプリケーションURLに遷移
+2. page.screenshot(): 各ステップでスクリーンショット取得
+3. page.click() / page.fill(): ユーザー操作のシミュレーション
+4. recordVideo: セクション全体の操作を録画
 ```
 
-### 録画について
+### 録画実行方法
 
-Playwright MCPでは直接録画機能は提供されないため、以下のアプローチを推奨：
+Playwrightの`recordVideo`オプションを使用してセクション全体の操作を録画します。
 
-1. **スクリーンショットベース**: 各操作ステップでスクリーンショットを取得
-2. **外部録画ツール連携**: 必要に応じてOS標準の録画機能を使用
+```javascript
+import { rename } from 'fs/promises';
+
+// ブラウザコンテキスト作成時に録画を有効化
+const context = await browser.newContext({
+  recordVideo: {
+    dir: '.context/e2e-evidence/[feature]/[section]/',
+    size: { width: 1280, height: 720 }
+  }
+});
+
+const page = await context.newPage();
+// ... E2Eシナリオ実行（全シナリオを同一コンテキストで実行） ...
+
+const video = page.video();
+// コンテキストを閉じると録画ファイルが自動保存
+await context.close();
+
+// 録画ファイルをrecording.webmにリネーム
+const videoPath = await video.path();
+await rename(videoPath, '.context/e2e-evidence/[feature]/[section]/recording.webm');
+```
+
+**録画ファイル仕様:**
+- フォーマット: WebM（Playwrightデフォルト）
+- 解像度: 1280x720
+- ファイル名: `recording.webm`
 
 ### シナリオ実行
 
@@ -218,6 +249,8 @@ FOR each e2e_scenario in section.e2e_scenarios:
     1. シナリオに基づいてアクションを実行
     2. 各アクション後にスクリーンショット取得
     3. エラー発生時は記録して次へ進む
+AFTER all scenarios:
+    4. context.close() で録画を保存
 ```
 
 ---
@@ -295,8 +328,9 @@ FOR each e2e_scenario in section.e2e_scenarios:
 
 | エラー種別 | 対応 | 継続可否 |
 |-----------|------|---------|
-| Playwright MCP未インストール | 警告、スキップ | 続行 |
+| Playwright未インストール | 警告、スキップ | 続行 |
 | アプリケーション未起動 | 警告、リトライ提案 | 続行 |
+| 録画失敗 | エラー記録、スクリーンショットのみ収集 | 続行 |
 | スクリーンショット失敗 | 記録、次へ | 続行 |
 | 全アクション失敗 | エラー記録 | 続行 |
 
@@ -320,7 +354,7 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
     "video_path": null,
     "screenshots": [],
     "executed_at": "2025-12-30T12:00:00Z",
-    "error_message": "Playwright MCP接続失敗: Connection refused"
+    "error_message": "Playwright接続失敗: Connection refused"
   }
 }
 ```
@@ -338,6 +372,9 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
 ステータス: 成功
 
 ### 収集ファイル
+録画:
+  - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/recording.webm`
+
 スクリーンショット:
   - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/step-01-initial.png`
   - `.context/e2e-evidence/user-dashboard/section-2-user-dashboard/step-02-action.png`
@@ -355,11 +392,12 @@ E2Eエビデンス収集失敗 ≠ レビューブロック
 ステータス: 失敗
 
 ### エラー内容
-Playwright MCP接続に失敗しました。
+Playwright接続に失敗しました。
 
 ### 推奨アクション
 1. アプリケーションが起動しているか確認してください
-2. Playwright MCPが正しく設定されているか確認してください
+2. Playwrightが正しくインストールされているか確認してください
+3. `npx playwright install` でブラウザをインストールしてください
 
 Codexレビューは続行します。
 ```
@@ -373,7 +411,7 @@ Codexレビューは続行します。
 ```javascript
 section.e2e_evidence = {
   status: "passed",
-  video_path: null,  // Playwright MCPでは録画非対応
+  video_path: ".context/e2e-evidence/[feature]/[section]/recording.webm",
   screenshots: [
     ".context/e2e-evidence/[feature]/[section]/step-01-initial.png",
     ".context/e2e-evidence/[feature]/[section]/step-02-action.png"
@@ -388,8 +426,8 @@ section.e2e_evidence = {
 ```javascript
 section.e2e_evidence = {
   status: "failed",
-  video_path: null,
-  screenshots: [], // 部分的に取得できた場合は含める
+  video_path: null,  // 録画取得失敗時はnull
+  screenshots: [],   // 部分的に取得できた場合は含める
   executed_at: new Date().toISOString(),
   error_message: "エラーの詳細"
 };
@@ -472,7 +510,7 @@ rm -rf .context/e2e-evidence/[feature-name]/
                       ▼                    ▼
          ┌────────────────────────┐  ┌────────────────────────┐
          │ E2Eエビデンス収集      │  │ セクション完了         │
-         │ (Playwright MCP)       │  │ 次のセクションへ       │
+         │ (Playwright)           │  │ 次のセクションへ       │
          └────────────────────────┘  └────────────────────────┘
                       │
                       ▼

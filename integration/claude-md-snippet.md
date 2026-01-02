@@ -47,7 +47,7 @@
 
 #### E2Eエビデンス収集
 
-`[E2E]` タグ付きセクションでは、**Codexレビュー承認後**にPlaywright MCPを使用してE2Eエビデンスを自動収集：
+`[E2E]` タグ付きセクションでは、**Codexレビュー承認後**にPlaywrightを使用してE2Eエビデンス（**画面録画とスクリーンショット**）を自動収集：
 
 ```markdown
 ## Section 2: User Dashboard [E2E]    ← [E2E]タグでE2E必要を示す
@@ -61,8 +61,8 @@
 1. セクション完了
 2. Codexレビュー実行
 3. APPROVED取得後 + `[E2E]`タグ検出
-4. Playwright MCPでスクリーンショット収集
-5. `.context/e2e-evidence/`に保存
+4. Playwrightで画面録画とスクリーンショット収集
+5. `.context/e2e-evidence/`に保存（recording.webm + step-*.png）
 
 エビデンスは `.context/` に保存（gitignore推奨）。E2E失敗でもセクションは完了扱い。
 ```

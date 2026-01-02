@@ -405,7 +405,7 @@ tasks.mdに `##` 見出しがない場合：
 
 ### E2Eエビデンス収集失敗時
 
-Playwright MCPでの実行が失敗した場合：
+Playwrightでの実行が失敗した場合：
 
 ```
 1. e2e_evidence.status = "failed"
@@ -452,7 +452,7 @@ APPROVED ?
 shouldTriggerE2EEvidence(sectionId) = true?
     ├── NO → セクション完了、次へ進行
     ↓ YES
-E2Eエビデンス収集（Playwright MCP）
+E2Eエビデンス収集（Playwright）
     ↓
 結果を e2e_evidence に保存
     ↓
@@ -473,12 +473,13 @@ E2Eエビデンス収集（Playwright MCP）
 .context/e2e-evidence/
 └── [feature-name]/
     └── [section-id]/
+        ├── recording.webm          # 画面録画（必須）
         ├── step-01-initial.png     # 初期状態
         ├── step-02-action.png      # 操作後
         └── step-03-complete.png    # 完了状態
 ```
 
-**注意**: Playwright MCPは直接録画機能を提供しないため、スクリーンショットのみがエビデンスとして収集されます。
+**注意**: Playwright recordVideoを使用して画面録画を取得します。録画とスクリーンショットの両方が必須エビデンスです。
 
 ---
 

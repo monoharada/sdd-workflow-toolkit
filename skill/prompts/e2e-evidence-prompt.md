@@ -1,13 +1,13 @@
 # E2Eエビデンス収集プロンプト
 
-このファイルはPlaywright MCPを使用してE2Eエビデンスを収集するためのプロンプトテンプレートです。
+このファイルはPlaywrightを使用してE2Eエビデンス（**画面録画とスクリーンショット**）を収集するためのプロンプトテンプレートです。
 
 ## 重要: 実行方法
 
-**このプロンプトは Claude Code が Playwright MCP を使用して実行します。**
-- Codex CLI ではなく、Playwright MCP のブラウザ操作機能を使用
+**このプロンプトは Claude Code が Playwright を使用して実行します。**
+- Playwrightの`recordVideo`オプションで画面録画を取得
 - 各ステップでスクリーンショットを取得
-- 結果を `.context/e2e-evidence/` に保存
+- 結果を `.context/e2e-evidence/` に保存（recording.webm + step-*.png）
 
 ---
 
@@ -15,7 +15,7 @@
 
 ```
 あなたはE2Eテストエンジニアです。
-Playwright MCPを使用して、以下のセクションのE2Eエビデンスを収集してください。
+Playwrightを使用して、以下のセクションのE2Eエビデンス（**画面録画とスクリーンショット**）を収集してください。
 
 ## 対象セクション
 
@@ -41,7 +41,17 @@ Playwright MCPを使用して、以下のセクションのE2Eエビデンスを
 ### 1. 準備
 
 1. エビデンス保存ディレクトリを作成
-2. ブラウザを開く
+2. ブラウザを開く（**録画を有効化**）
+
+```javascript
+const context = await browser.newContext({
+  recordVideo: {
+    dir: '{{EVIDENCE_DIR}}',
+    size: { width: 1280, height: 720 }
+  }
+});
+const page = await context.newPage();
+```
 
 ### 2. シナリオ実行
 
@@ -49,17 +59,43 @@ Playwright MCPを使用して、以下のセクションのE2Eエビデンスを
 
 ```
 FOR each scenario in E2E_SCENARIOS:
-    1. アプリケーションURLに遷移 (browser_navigate)
-    2. 初期状態のスクリーンショット取得
+    1. アプリケーションURLに遷移 (page.goto)
+    2. 初期状態のスクリーンショット取得 (page.screenshot)
     3. シナリオのアクションを順次実行:
-       - 要素のクリック (browser_click)
-       - テキスト入力 (browser_type)
+       - 要素のクリック (page.click)
+       - テキスト入力 (page.fill)
        - フォーム送信
     4. 各アクション後にスクリーンショット取得
     5. 最終状態のスクリーンショット取得
+AFTER all scenarios:
+    6. ブラウザコンテキストを閉じて録画を保存 (context.close)
 ```
 
-### 3. スクリーンショット命名規則
+### 2.1 録画の保存
+
+```javascript
+import { rename } from 'fs/promises';
+
+// すべてのシナリオが完了してから録画を保存する
+const video = page.video();
+// コンテキストを閉じると録画が自動保存される
+await context.close();
+
+// 録画ファイルをrecording.webmにリネーム
+// Playwrightはランダムなファイル名で保存するため、リネームが必要
+const videoPath = await video.path();
+await rename(videoPath, '{{EVIDENCE_DIR}}/recording.webm');
+```
+
+### 3. ファイル命名規則
+
+#### 録画ファイル
+
+```
+recording.webm                  # セクション全体の録画（必須）
+```
+
+#### スクリーンショット
 
 ```
 step-NN-description.png
@@ -85,11 +121,16 @@ step-04-complete.png           # 最終状態
 - 実行日時: [timestamp]
 
 ### 収集ファイル
+録画:
+- `recording.webm` - セクション全体の操作録画
+
+スクリーンショット:
 - `step-01-xxx.png` - [説明]
 - `step-02-xxx.png` - [説明]
 - ...
 
 ### 実行結果
+- 録画: 成功/失敗
 - 成功したシナリオ: X件
 - 失敗したシナリオ: Y件
 - 備考: [任意のメモ]
@@ -191,16 +232,18 @@ URL: {{APP_URL}}
 
 ---
 
-## Playwright MCPアクション対応表
+## Playwrightアクション対応表
 
-| シナリオアクション | Playwright MCP |
+| シナリオアクション | Playwright API |
 |------------------|----------------|
-| ページを開く | `browser_navigate` |
-| 要素をクリック | `browser_click` |
-| テキスト入力 | `browser_type` |
-| スクリーンショット | `browser_screenshot` |
-| 要素の確認 | `browser_snapshot` で取得したDOMを確認 |
-| 待機 | `browser_wait_for` |
+| ブラウザ起動（録画付き） | `browser.newContext({ recordVideo: {...} })` |
+| ページを開く | `page.goto()` |
+| 要素をクリック | `page.click()` |
+| テキスト入力 | `page.fill()` |
+| スクリーンショット | `page.screenshot()` |
+| 要素の確認 | `page.locator()` |
+| 待機 | `page.waitFor*()` |
+| 録画保存 | `context.close()` で自動保存（全シナリオ後） |
 
 ---
 
